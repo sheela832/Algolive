@@ -5,7 +5,8 @@ from OrderParam import OrderParam
 import schedule
 from datetime import datetime
 from strategy_repo import STRATEGY_REPO
-from database import GetOpenPosition,NSE_SESSION
+from database import GetOpenPosition , NSE_SESSION
+
 
 class StrategyFactory(STRATEGY_REPO):
 
@@ -15,6 +16,7 @@ class StrategyFactory(STRATEGY_REPO):
         self.nse = NSE_SESSION()
         self.index = 'NIFTY' if self.symbol == 'NSE:NIFTY50-INDEX' else (
             'BANKNIFTY' if symbol == 'NSE:NIFTYBANK-INDEX' else 'FINNIFTY')
+
         self.strike_interval = {'NSE:NIFTYBANK-INDEX': 100, 'NSE:NIFTY50-INDEX': 50, 'NSE:FINNIFTY-INDEX': 50}
 
         # initializing the variables
@@ -30,6 +32,7 @@ class StrategyFactory(STRATEGY_REPO):
         self.OrderManger = OrderMng(mode, name,self)
         self.processed_flag = False
         self.expiry = self.nse.GetExpiry(self.index)
+
 
     def Is_Valid_time(self):
         valid_time = False
@@ -85,13 +88,11 @@ class StrategyFactory(STRATEGY_REPO):
         if self.Is_Valid_time():
             if not self.overnight_flag:
                 self.Validate_OvernightPosition()
-                # getting expiry
-
                 if not self.scheduler.jobs:
                     self.scheduler.every(5).seconds.do(self.OrderManger.Update_OpenPosition)
             else:
                 if not self.position and self.trade_flag and not self.processed_flag and not self.scheduler.jobs:
-                    self.signal = -1 * self.get_signal()
+                    self.signal = self.get_signal()
                     if self.signal:
                         self.scheduler.every(5).seconds.do(self.Open_position)
                     self.processed_flag = True
@@ -102,17 +103,16 @@ class StrategyFactory(STRATEGY_REPO):
         self.scheduler.run_pending()
         self.Exit_position_on_real_time()
 
-
     def IsExpiry(self):
         expiry = datetime.strptime(self.expiry[0], '%d%b%y')
         return datetime.now(self.time_zone).date() == expiry.date()
 
     def Exit_position_on_real_time(self):
-        # if self.expiry_weekday[self.symbol] == datetime.now(self.time_zone).weekday():
-        if datetime.now(self.time_zone).time() > datetime.strptime('15:15:00', "%H:%M:%S").time():
-            if self.position:
-                self.squaring_of_all_position_AT_ONCE()
-            self.trade_flag = False
+        if self.IsExpiry():
+            if datetime.now(self.time_zone).time() > datetime.strptime('15:15:00', "%H:%M:%S").time():
+                if self.position:
+                    self.squaring_of_all_position_AT_ONCE()
+                self.trade_flag = False
 
     def squaring_of_all_position_AT_ONCE(self):
         success = False
@@ -143,7 +143,4 @@ class StrategyFactory(STRATEGY_REPO):
             OpenPos = GetOpenPosition(self.strategy_name)
             max_loss = abs(OpenPos['NAV']).diff().iloc[-1]
             self.target = 2.14 * abs(max_loss)
-
-
-
 
