@@ -45,7 +45,7 @@ class NSE_SESSION:
         }
         self.cook_url = "https://www.nseindia.com/option-chain"
         self.session = requests.Session()
-        self.proxies = {'http': 'http://129.154.225.163:8100'}  # Define proxy
+        self.proxies = {'http': 'http://152.67.10.190:8100'}  # Define proxy
         self.cookies = self.session.get(self.cook_url, headers=self.headers, timeout=5, proxies=self.proxies).cookies
 
     def GetExpiry(self, indices):
