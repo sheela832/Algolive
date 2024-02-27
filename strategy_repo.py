@@ -73,11 +73,11 @@ class STRATEGY_REPO:
     def get_params(self):
         param = None
         if self.strategy_name == 'TREND_EMA':
-           param = {'lags': 0,'lookback_1': 8,'lookback_2': 25,'normal_window': 39,'window': 30}
+           param = {'lags': 0,'lookback_1': 8,'lookback_2': 10,'normal_window': 35,'window': 5}
         elif self.strategy_name == 'SharpeRev':
-            param = {'lags': 3,'lookback': 6,'normal_window': 10,'q_dn': 0.25223046158278517,'q_up': 0.9732648892687361,'window': 11}
+            param = {'lags': 5,'lookback': 25,'normal_window': 10,'q_dn': 0.35,'q_up': 0.85,'window': 5}
         elif self.strategy_name == 'MOM_BURST':
-            param = {'lags': 5,'lookback': 11,'normal_window': 98}
+            param = {'lags': 5,'lookback': 30,'normal_window': 135}
 
         return param
 
@@ -106,7 +106,7 @@ class STRATEGY_REPO:
 
     def generate_features(self):
         params = self.get_params
-        self.normalized_features,regime_input = self.TREND_EMA(**params) if self.strategy_name =='TREND_EMA' else(self.SharpeRev(**params) if self.strategy_name == 'SharpeRev' else self.MOM_BURST(**params))
+        self.normalized_features , regime_input= self.TREND_EMA(**params) if self.strategy_name =='TREND_EMA' else(self.SharpeRev(**params) if self.strategy_name == 'SharpeRev' else self.MOM_BURST(**params))
 
         if self.strategy_name =='TREND_EMA':
             for name in self.Components:
@@ -195,7 +195,7 @@ class STRATEGY_REPO:
                     #       concatenate the feature and lag features
             features = pd.concat([features, lag_values], axis=1)
 
-        # normalization the features
+        #       normalization the features
         normalized_features = self.Normalization(features, normal_window, True)
         normalized_features.columns = [f"{col}_{id_}" for col in normalized_features.columns]
         return normalized_features
@@ -220,6 +220,7 @@ class STRATEGY_REPO:
         features['sentiment'] = EMA - self.data['close']
         features['pct_change'] = pct_change
 
+
         # adding lagged features
         if lags:
             lag_values = pd.DataFrame()
@@ -233,8 +234,7 @@ class STRATEGY_REPO:
         normalized_features = self.Normalization(features, normal_window, True)
         normalized_features['dayofweek'] = normalized_features.index.dayofweek
         VolatilityRegime = self.VolatilityRegime()
-
-        return normalized_features , VolatilityRegime.loc[normalized_features.index]
+        return normalized_features, VolatilityRegime.loc[normalized_features.index]
 
     def MOM_BURST(self,lookback,  normal_window, lags):
         # Initialization of variables
@@ -269,7 +269,6 @@ class STRATEGY_REPO:
         normalized_features = self.Normalization(features, normal_window, True)
         normalized_features['dayofweek'] = normalized_features.index.dayofweek
         VolatilityRegime = self.VolatilityRegime()
-
         return normalized_features, VolatilityRegime.loc[normalized_features.index]
 
     def Regimer(self ,regime_input):

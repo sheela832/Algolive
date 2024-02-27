@@ -5,14 +5,14 @@ from datetime import datetime
 
 def request_position():
     records = pd.DataFrame()
-    url = 'https://algotrade.pythonanywhere.com/get_position'
+    url = 'https://algotrade.pythonanywhere.com/get_position_Intraday'
     response = requests.get(url)
     if response.json() != 'no records':
         records = pd.DataFrame.from_records(response.json())
     return records
 
 def UpdatePositionBook(Date, entrytime, exittime ,strategy_name, Transtype, Instrument, Signal, NetQty, NAV, POSITION):
-    url = 'https://algotrade.pythonanywhere.com/append_position'
+    url = 'https://algotrade.pythonanywhere.com/append_position_Intraday'
 
     # creating records
     records = {'Date': Date, 'entrytime': entrytime, 'Strategy': strategy_name, 'Transtype': Transtype,
@@ -34,7 +34,6 @@ def GetOpenPosition(strategy):
         is_open = (Open_Pos['Strategy'] == strategy) & (Open_Pos['POSITION'] == 'OPEN')
         records = Open_Pos.loc[is_open]
     return records
-
 
 class NSE_SESSION:
     def __init__(self):
