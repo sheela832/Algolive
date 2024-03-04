@@ -73,11 +73,11 @@ class STRATEGY_REPO:
     def get_params(self):
         param = None
         if self.strategy_name == 'TREND_EMA':
-           param = {'lags': 0,'lookback_1': 8,'lookback_2': 10,'normal_window': 35,'window': 5}
+           param = {'lags': 5,'lookback_1': 8,'lookback_2': 10,'normal_window': 150,'window': 30}
         elif self.strategy_name == 'SharpeRev':
-            param = {'lags': 5,'lookback': 25,'normal_window': 10,'q_dn': 0.35,'q_up': 0.85,'window': 5}
+            param = {'lags': 5,'lookback': 19,'normal_window': 24,'q_dn': 0.05,'q_up': 1.0,'window': 5}
         elif self.strategy_name == 'MOM_BURST':
-            param = {'lags': 5,'lookback': 30,'normal_window': 135}
+            param = {'lags': 1,'lookback': 12,'normal_window': 10}
 
         return param
 
@@ -252,6 +252,7 @@ class STRATEGY_REPO:
         features['mom_burst_hh'] = v1 / v1.rolling(window=lookback).max().shift(1)
         features['mom_burst_ll'] = v1.rolling(window=lookback).min().shift(1) / v1
         features['rsi'] = rsi
+        features['GAP'] = self.data['open'] / self.data['close'].shift(1)
 
         for col in ['range_mean_vs_candle_range', 'mom_burst_hh', 'mom_burst_ll']:
             features[f'{col}_STD'] = features[col].ewm(span=lookback).std()
