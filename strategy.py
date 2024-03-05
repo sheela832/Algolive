@@ -97,6 +97,7 @@ class StrategyFactory(STRATEGY_REPO):
                     if self.signal:
                         self.scheduler.every(5).seconds.do(self.Open_position)
                     self.processed_flag = True
+                    print(self.strategy_name , self.signal)
 
         self.MonitorTrade()
         self.STR_MTM = round(self.OrderManger.Live_MTM(),2) if self.position else round(self.OrderManger.CumMtm,2)
@@ -156,7 +157,8 @@ class StrategyFactory(STRATEGY_REPO):
                 self.LOWER_CIR = np.min(strike) - abs(range_) if signal > 0 else np.min(strike)
             else:
                 spot = self.LIVE_FEED.get_ltp(self.symbol)
-                if (self.UPPER_CIR < spot) | (self.LOWER_CIR > spot):
+                # / closing the existing position only if targeted strike is hit
+                if (self.UPPER_CIR < spot and self.position > 0) | (self.LOWER_CIR > spot and self.position < 0):
                     self.squaring_of_all_position_AT_ONCE()
                     self.processed_flag = False
 
