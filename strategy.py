@@ -55,7 +55,7 @@ class StrategyFactory(STRATEGY_REPO):
     def Open_position(self):
         if not self.instrument_under_strategy:
             self.param = {}
-            for key, value in OrderParam(self.strategy_name, self.signal).items():
+            for key, value in OrderParam(self.strategy_name, self.signal, self.IsExpiry()).items():
                 instrument = self.get_instrument(value['opt'], value['step'], value['expiry'])
                 self.param[instrument] = {'Instrument': instrument, 'Transtype': value['transtype'],
                                           'Qty': value['Qty'],'signal':self.signal}
