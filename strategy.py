@@ -57,7 +57,7 @@ class StrategyFactory(STRATEGY_REPO):
             for key, value in OrderParam(self.strategy_name, self.signal, self.IsExpiry()).items():
                 instrument = self.get_instrument(value['opt'], value['step'], value['expiry'])
                 self.param[instrument] = {'Instrument': instrument, 'Transtype': value['transtype'],
-                                          'Qty': value['Qty'],'signal':self.signal}
+                                          'Qty': value['Qty'],'signal':self.signal, 'spread': value['spread']}
 
             # subscribing for instrument
             instrument_to_subscribe = [instrument for instrument in self.instrument_under_strategy if instrument not in self.LIVE_FEED.token.values()]
@@ -96,7 +96,6 @@ class StrategyFactory(STRATEGY_REPO):
                     if self.signal:
                         self.scheduler.every(5).seconds.do(self.Open_position)
                     self.processed_flag = True
-                    print(self.strategy_name , self.signal)
 
         self.MonitorTrade()
         self.STR_MTM = round(self.OrderManger.Live_MTM(),2) if self.position else round(self.OrderManger.CumMtm,2)
