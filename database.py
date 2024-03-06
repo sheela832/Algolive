@@ -17,11 +17,11 @@ def request_position():
 
     return records
 
-def UpdatePositionBook(Date, entrytime, exittime ,strategy_name, Transtype, Instrument, Signal, NetQty, NAV, POSITION):
+def UpdatePositionBook(Date, entrytime, exittime ,strategy_name,spread,Transtype, Instrument,Signal, NetQty, NAV, POSITION):
     url = 'https://algotrade.pythonanywhere.com/append_position_Intraday'
 
     # creating records
-    records = {'Date': Date, 'entrytime': entrytime, 'Strategy': strategy_name, 'Transtype': Transtype,
+    records = {'Date': Date, 'entrytime': entrytime, 'Strategy': strategy_name,'spread':spread,'Transtype': Transtype,
                'Instrument': Instrument,'Signal': Signal, 'NetQty': NetQty,
                'NAV':  NAV, 'POSITION': POSITION,'exittime':exittime}
 
@@ -32,6 +32,9 @@ def UpdatePositionBook(Date, entrytime, exittime ,strategy_name, Transtype, Inst
     except Timeout:
         print('Timeout:Unable to update the PositionBook Server , Server might be busy')
         print(f'PAYLOAD:{payload}')
+
+
+
 
 def GetOpenPosition(strategy):
     records = pd.DataFrame()

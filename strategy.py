@@ -21,8 +21,7 @@ class StrategyFactory(STRATEGY_REPO):
         # initializing the variables
         self.signal = 0
         self.spot = 0
-        self.LOWER_CIR = 0
-        self.UPPER_CIR = 0
+        self.ACT_CIR = 0
         self.overnight_flag = False
         self.trade_flag = True
         self.ticker_space = pd.DataFrame()
@@ -135,8 +134,7 @@ class StrategyFactory(STRATEGY_REPO):
         if success:
             self.position = self.position if self.OrderManger.net_qty else 0
             if not self.position:
-                self.UPPER_CIR = 0
-                self.LOWER_CIR = 0
+                self.ACT_CIR = 0
 
     def Validate_OvernightPosition(self):
         if self.position:
@@ -144,24 +142,29 @@ class StrategyFactory(STRATEGY_REPO):
             self.overnight_flag = True
 
     def MonitorTrade(self):
-        if self.position and not self.expiry:
-            if not self.UPPER_CIR and not self.LOWER_CIR:
+        if self.position:
+            if not self.ACT_CIR:
                 strike = []
                 OpenPos = GetOpenPosition(self.strategy_name)
                 signal = list(set(OpenPos['Signal'].values))[-1]
+                self.spr = list(set(OpenPos['spread'].values))[-1]
                 for instrument in OpenPos['Instrument'].values:
                     strike.append(self.Get_Strike(instrument))
                 # only valid for bull call or put spread strategy
-                range_ = np.diff(strike)[0]
-                # debit spread
-                self.UPPER_CIR = np.max(strike) + abs(range_) if signal < 0 else np.max(strike)
-                self.LOWER_CIR = np.min(strike) - abs(range_) if signal > 0 else np.min(strike)
+                if self.spr == 'DEBIT':
+                    range_ = 100
+                    self.ACT_CIR = np.max(strike) - range_ if signal > 0 else np.min(strike) + range_
+                elif self.spr == 'CREDIT':
+                    range_ = 200
+                    self.ACT_CIR = np.min(strike) + range_ if signal > 0 else np.max(strike) - range_
+
             else:
                 spot = self.LIVE_FEED.get_ltp(self.symbol)
-                if (self.UPPER_CIR < spot and self.position > 0) | (self.LOWER_CIR > spot and self.position < 0):
+                cond_1 = (self.ACT_CIR < spot and self.position > 0) | (self.ACT_CIR > spot and self.position < 0)
+                cond_2 = (self.ACT_CIR > spot and self.position > 0) | (self.ACT_CIR < spot and self.position < 0)
+                if (cond_1 and self.spr == 'DEBIT') | (cond_2 and self.spr == 'CREDIT'):
                     self.squaring_of_all_position_AT_ONCE()
                     self.processed_flag = False
-
     def Get_Strike(self, instrument):
         ex = [e for e in self.expiry if e in instrument][-1]
         stk = instrument.replace(self.index, '').replace(ex, '')
