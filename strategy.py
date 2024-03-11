@@ -54,7 +54,7 @@ class StrategyFactory(STRATEGY_REPO):
     def Open_position(self):
         if not self.instrument_under_strategy:
             self.param = {}
-            for key, value in OrderParam(self.strategy_name, self.signal, self.IsExpiry()).items():
+            for key, value in OrderParam(self.strategy_name, self.signal,self.index,self.IsExpiry()).items():
                 instrument = self.get_instrument(value['opt'], value['step'], value['expiry'])
                 self.param[instrument] = {'Instrument': instrument, 'Transtype': value['transtype'],
                                           'Qty': value['Qty'],'signal':self.signal, 'spread': value['spread']}
@@ -82,6 +82,7 @@ class StrategyFactory(STRATEGY_REPO):
             print(f'Socket is not Opened yet,re-iterating the function')
 
     def on_tick(self):
+        self.get_signal()
         # updating the overnight position
         if self.Is_Valid_time():
             if not self.overnight_flag:
