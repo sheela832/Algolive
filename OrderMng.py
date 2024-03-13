@@ -9,12 +9,11 @@ import pytz
 class OrderMng:
     LIVE_FEED = None
 
-    def __init__(self,mode, name,obj):
+    def __init__(self, mode, name, obj):
         self.StrategyFactory_Obj = obj
         self.mode = mode
         self.strategy_name = name
         self.time_zone = pytz.timezone('Asia/kolkata')
-        self.Trans_date = {}
         self.entry_time = {}
         self.exit_time = {}
         self.nav = {}
@@ -32,7 +31,6 @@ class OrderMng:
             for index, row in OpenPos.iterrows():
                 instrument = row['Instrument']
                 self.Initialize_Variables(instrument)
-                self.Trans_date[instrument] = row['Date']
                 self.entry_time[instrument] = row['entrytime']
                 self.Transtype[instrument] = row['Transtype']
                 self.Signal[instrument] = row['Signal']
@@ -48,7 +46,8 @@ class OrderMng:
         self.overnight_variables_update_flag = True
 
         if self.nav:
-            instrument_to_subscribe = [instrument for instrument in self.nav if instrument not in self.LIVE_FEED.token.values()]
+            instrument_to_subscribe = [instrument for instrument in self.nav if
+                                       instrument not in self.LIVE_FEED.token.values()]
             if instrument_to_subscribe:
                 self.LIVE_FEED.subscribe_new_symbol(instrument_to_subscribe)
 
@@ -65,9 +64,9 @@ class OrderMng:
 
     def Live_MTM(self):
         mtm = sum([(self.LIVE_FEED.get_ltp(ins) * self.net_qty[ins]) - self.nav[ins] for ins in self.nav])
-        return self.CumMtm+mtm
+        return self.CumMtm + mtm
 
-    def Add_position(self,Instrument,Transtype, Qty,signal,spread):
+    def Add_position(self, Instrument, Transtype, Qty, signal, spread):
         price = 0
         success = False
 
@@ -85,29 +84,28 @@ class OrderMng:
         # if success is True i:e order is successfully placed then only taken into consideration
         if Transtype == 'BUY' and success:
             self.net_qty[Instrument] += Qty
-            self.nav[Instrument] += (price*Qty)
+            self.nav[Instrument] += (price * Qty)
             self.Transtype[Instrument] = Transtype
             self.Signal[Instrument] = signal
             self.spread[Instrument] = spread
 
         elif Transtype == 'SELL' and success:
             self.net_qty[Instrument] -= Qty
-            self.nav[Instrument] -= (price*Qty)
+            self.nav[Instrument] -= (price * Qty)
             self.Transtype[Instrument] = Transtype
             self.Signal[Instrument] = signal
             self.spread[Instrument] = spread
 
         if success:
             if Instrument not in self.entry_time:
-                self.entry_time[Instrument] = datetime.now(self.time_zone).time()
-                self.Trans_date[Instrument] = datetime.now(self.time_zone).date()
+                self.entry_time[Instrument] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
             if self.mode == 'Simulator':
                 self.UpdatePosition(Instrument)
 
         return success
 
-    def close_position(self, Instrument,Qty):
+    def close_position(self, Instrument, Qty):
         price = 0
         success = False
 
@@ -135,18 +133,18 @@ class OrderMng:
         return success
 
     def UpdatePosition(self, instrument):
-        dt = self.Trans_date[instrument]
+        dt = datetime.now(self.time_zone).date()
         entry_time = self.entry_time[instrument]
         POSITION = 'OPEN' if self.net_qty[instrument] != 0 else 'CLOSED'
-        exit_time = datetime.now(self.time_zone) if POSITION == 'CLOSED' else np.nan
+        exit_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S') if POSITION == 'CLOSED' else np.nan
         NAV = -1 * self.nav[instrument] if POSITION == 'CLOSED' else self.nav[instrument]
         NetQty = self.net_qty[instrument]
         Signal = self.Signal[instrument]
         Transtype = self.Transtype[instrument]
         spread = self.spread[instrument]
 
-        UpdatePositionBook(dt, entry_time, exit_time, self.strategy_name,spread,
-                           Transtype, instrument,Signal, NetQty, NAV,
+        UpdatePositionBook(dt, entry_time, exit_time, self.strategy_name, spread,
+                           Transtype, instrument, Signal, NetQty, NAV,
                            POSITION)
 
     def Initialize_Variables(self, instrument):
@@ -164,6 +162,6 @@ class OrderMng:
         self.entry_time.pop(instrument, None)
         self.exit_time.pop(instrument, None)
         self.Signal.pop(instrument, None)
-        self.Trans_date.pop(instrument, None)
+
 
 
