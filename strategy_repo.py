@@ -5,6 +5,7 @@ import pandas_ta as ta
 import pickle as pk
 from sklearn.decomposition import PCA
 from hmmlearn import hmm
+from OrderParam import get_ensemble_n , get_params
 
 def Z_score(dt ,length):
     mean = dt.ewm(span=length).mean()
@@ -46,42 +47,45 @@ class STRATEGY_REPO:
         self.model_1 = None
         self.pca_1 = None
         self.regime_model_1 = None
+        self.ensemble_model = None
+        self.model_type = 'short'
+        self.base_ml = [None]
+        self.pca_model = [None]
         self.load_model()
 
     def load_model(self):
-        self.model_1 = self.get_model(1, 'ML')
-        self.pca_1 = self.get_model(1, 'PCA')
+        ensemble = get_ensemble_n(self.strategy_name)
+        for n in range(1,ensemble+1):
+            self.base_ml.append(self.get_model(n, 'ML'))
+            self.pca_model.append(self.get_model(n, 'PCA'))
+
         self.regime_model_1 = self.get_model(1, 'REGIME')
+        self.ensemble_model = self.get_model(1,'ENSEM')
 
     def get_model(self, n, model):
-        file_name = f'{self.strategy_name}_PCA_{n}' if model == 'PCA' else (f'{self.strategy_name}_REGIME_{n}' if model == 'REGIME' else f'{self.strategy_name}_{n}')
-        with open(f'{file_name}.pkl', 'rb') as file:
+        file_name = f'{self.strategy_name}_{n}' if model == 'ML' else f'{self.strategy_name}_{model}_{n}'
+        file_path = f'TRAINED_ML\\{self.strategy_name}\\{self.model_type}\\{file_name}.pkl'
+        with open(file_path, 'rb') as file:
             loaded_model = pk.load(file)
         return loaded_model
 
     def get_signal(self):
+        feature = None
         self.data = self.TICKER.get_data(self.symbol, f'{self.interval}')
-        self.generate_features()
-        return self.get_prediction()
+        # generating probabilities from base models
+        for i, param in enumerate(get_params(self.strategy_name), start=1):
+            self.generate_features(param)
+            proba = self.get_prediction(i)
+            if type(feature) == type(None):
+                feature = proba
+            else:
+                feature = np.concatenate((feature, proba), axis=1)
 
-    def get_prediction(self):
-        model_input = self.pca_1.transform(self.normalized_features.values[-1].reshape(1, -1))
-        prediction = self.model_1.predict(model_input)
-        return prediction[-1]
+        return self.ensemble_model.predict(feature)[-1]
 
-    @property
-    def get_params(self):
-        param = None
-        if self.strategy_name == 'TREND_EMA':
-           param = {'lags': 5,'lookback_1': 8,'lookback_2': 10,'normal_window': 150,'window': 30}
-        elif self.strategy_name == 'SharpeRev':
-            param = {'lags': 5,'lookback': 19,'normal_window': 24,'q_dn': 0.05,'q_up': 1.0,'window': 5}
-        elif self.strategy_name == 'MOM_BURST':
-            param = {'lags': 1,'lookback': 12,'normal_window': 10}
-        elif self.strategy_name == 'Volatility_BRK':
-            param = {'band_width': 1.5,'lags': 5,'lookback': 60,'normal_window': 122}
-
-        return param
+    def get_prediction(self, n):
+        model_input = self.pca_model[n].transform(self.normalized_features.values[-1].reshape(1, -1))
+        return self.base_ml[n].predict_proba(model_input)
 
     def Normalization(self, features, normal_window=10, normalization=True):
         if normalization:
@@ -106,26 +110,26 @@ class STRATEGY_REPO:
 
         return features
 
-    def generate_features(self):
-        params = self.get_params
+    def generate_features(self, params):
+
         if self.strategy_name == 'TREND_EMA':
-            self.normalized_features,regime_input = self.TREND_EMA(**params)
+            self.normalized_features, regime_input = self.TREND_EMA(**params)
         elif self.strategy_name == 'SharpeRev':
             self.normalized_features, regime_input = self.SharpeRev(**params)
-        elif self.strategy_name == 'MOM_BURST':
-            self.normalized_features, regime_input = self.MOM_BURST(**params)
         elif self.strategy_name == 'Volatility_BRK':
             self.normalized_features, regime_input = self.Volatility_BRK(**params)
 
         if self.strategy_name == 'TREND_EMA':
             for name in self.Components:
                 dt = self.TICKER.get_data(name, f'{self.interval}')
-                cmp_params = {'window': params['window'],'normal_window': params['normal_window'], 'lags': params['lags'], 'id_':name}
+                cmp_params = {'window': params['window'], 'normal_window': params['normal_window'],
+                              'lags': params['lags'], 'id_': name}
                 normalized_features_cmp = self.TREND_EMA_components(dt, **cmp_params)
                 idx = self.normalized_features.index
-                self.normalized_features = pd.concat([self.normalized_features, normalized_features_cmp.loc[idx]],axis=1)
+                self.normalized_features = pd.concat([self.normalized_features, normalized_features_cmp.loc[idx]],
+                                                     axis=1)
 
-    #   setting regimes
+        # setting regimes
         regime = self.Regimer(regime_input)
         self.normalized_features = pd.concat([self.normalized_features, regime], axis=1)
 
@@ -204,7 +208,7 @@ class STRATEGY_REPO:
                     #       concatenate the feature and lag features
             features = pd.concat([features, lag_values], axis=1)
 
-        #       normalization the features
+        # normalization the features
         normalized_features = self.Normalization(features, normal_window, True)
         normalized_features.columns = [f"{col}_{id_}" for col in normalized_features.columns]
         return normalized_features
@@ -242,50 +246,14 @@ class STRATEGY_REPO:
         normalized_features = self.Normalization(features, normal_window, True)
         normalized_features['dayofweek'] = normalized_features.index.dayofweek
         VolatilityRegime = self.VolatilityRegime()
+
         return normalized_features, VolatilityRegime.loc[normalized_features.index]
-
-    def MOM_BURST(self,lookback,  normal_window, lags):
-        # Initialization of variables
-        features = pd.DataFrame()
-
-        # calculating indicator values
-        v1, v2 = calculate_MOM_Burst(self.data, lookback)
-        candle_range = self.data['high'] - self.data['low']
-        rsi = ta.rsi(self.data['close'], lookback)
-
-        # calculating strategy components
-        features['mom_burst'] = v1
-        features['pct_change'] = self.data['close'].pct_change()
-        features['range_mean_vs_candle_range'] = candle_range / v2
-        features['mom_burst_hh'] = v1 / v1.rolling(window=lookback).max().shift(1)
-        features['mom_burst_ll'] = v1.rolling(window=lookback).min().shift(1) / v1
-        features['rsi'] = rsi
-        features['GAP'] = self.data['open'] / self.data['close'].shift(1)
-
-        for col in ['range_mean_vs_candle_range', 'mom_burst_hh', 'mom_burst_ll']:
-            features[f'{col}_STD'] = features[col].ewm(span=lookback).std()
-
-        # calculating lagged features
-        if lags:
-            lag_values = pd.DataFrame()
-            for col in features.columns:
-                for lag in range(1, lags + 1):
-                    lag_values[f'{col}_{lag}'] = features[col].shift(lag)
-        #   concatenate the feature and lag features
-            features = pd.concat([features, lag_values], axis=1)
-
-        # normalization the features
-        normalized_features = self.Normalization(features, normal_window, True)
-        normalized_features['dayofweek'] = normalized_features.index.dayofweek
-        VolatilityRegime = self.VolatilityRegime()
-        return normalized_features, VolatilityRegime.loc[normalized_features.index]
-
 
     def Volatility_BRK(self, lookback, band_width, normal_window, lags):
-        # initialization the variables
+        #  initialization the variables
         features = pd.DataFrame()
 
-        #   calculating indicators
+        # calculating indicators
         variation_range = (self.data['high'] - self.data['low']).shift(1)
         mean_price = self.data['close'].rolling(window=lookback).mean()
         mean_range = variation_range.rolling(window=lookback).mean()
@@ -299,7 +267,7 @@ class STRATEGY_REPO:
         atr = ta.atr(self.data['high'], self.data['low'], self.data['close'], lookback)
         avg_vs_price = self.data['close'] - mean_price
 
-        #   setting features
+        # setting features
         features['UP_BAND'] = volatility_band_UP
         features['DN_BAND'] = volatility_band_DN
         features['cross_up_ratio'] = cross_up_ratio
@@ -312,19 +280,19 @@ class STRATEGY_REPO:
         features['pct_change'] = self.data['close'].pct_change()
         features['range_'] = variation_range
 
-        # calculating lagged features
+        #  calculating lagged features
         if lags:
             lag_values = pd.DataFrame()
             for col in features.columns:
                 for lag in range(1, lags + 1):
                     lag_values[f'{col}_{lag}'] = features[col].shift(lag)
-        #   concatenate the feature and lag features
+                    #       concatenate the feature and lag features
             features = pd.concat([features, lag_values], axis=1)
 
         #  normalization the features
         normalized_features = self.Normalization(features, normal_window, True)
         normalized_features['dayofweek'] = normalized_features.index.dayofweek
-        #  volatility Regime
+        # volatility Regime
         VolatilityRegime = self.VolatilityRegime()
         return normalized_features, VolatilityRegime.loc[normalized_features.index]
 

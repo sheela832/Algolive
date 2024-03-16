@@ -34,8 +34,6 @@ def UpdatePositionBook(Date, entrytime, exittime ,strategy_name,spread,Transtype
         print(f'PAYLOAD:{payload}')
 
 
-
-
 def GetOpenPosition(strategy):
     records = pd.DataFrame()
     Open_Pos = request_position()
