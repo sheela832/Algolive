@@ -9,6 +9,7 @@ from database import GetOpenPosition,get_expiry
 import re
 import numpy as np
 
+
 class StrategyFactory(STRATEGY_REPO):
 
     def __init__(self, name, mode,symbol,Components,interval):
@@ -16,12 +17,14 @@ class StrategyFactory(STRATEGY_REPO):
         self.expiry = None
         self.index = 'NIFTY' if self.symbol == 'NSE:NIFTY50-INDEX' else (
             'BANKNIFTY' if symbol == 'NSE:NIFTYBANK-INDEX' else 'FINNIFTY')
+
         self.strike_interval = {'NSE:NIFTYBANK-INDEX': 100, 'NSE:NIFTY50-INDEX': 50, 'NSE:FINNIFTY-INDEX': 50}
 
         # initializing the variables
         self.signal = 0
         self.spot = 0
         self.ACT_CIR = 0
+        self.spr = None
         self.overnight_flag = False
         self.trade_flag = True
         self.ticker_space = pd.DataFrame()
@@ -32,9 +35,10 @@ class StrategyFactory(STRATEGY_REPO):
         self.processed_flag = False
         self.expiry = get_expiry(self.index)
 
+
     def Is_Valid_time(self):
         valid_time = False
-        if datetime.now(self.time_zone).time()>datetime.strptime('09:15:00', "%H:%M:%S").time():
+        if datetime.now(self.time_zone).time() > datetime.strptime('09:15:00', "%H:%M:%S").time():
             valid_time = True
         return valid_time
 
@@ -54,10 +58,10 @@ class StrategyFactory(STRATEGY_REPO):
     def Open_position(self):
         if not self.instrument_under_strategy:
             self.param = {}
-            for key, value in OrderParam(self.strategy_name, self.signal,self.index,self.IsExpiry()).items():
+            for key, value in OrderParam(self.strategy_name, self.signal,self.index, self.IsExpiry()).items():
                 instrument = self.get_instrument(value['opt'], value['step'], value['expiry'])
                 self.param[instrument] = {'Instrument': instrument, 'Transtype': value['transtype'],
-                                          'Qty': value['Qty'],'signal':self.signal, 'spread': value['spread']}
+                                          'Qty': value['Qty'],'signal':self.signal,'spread':value['spread']}
 
             # subscribing for instrument
             instrument_to_subscribe = [instrument for instrument in self.instrument_under_strategy if instrument not in self.LIVE_FEED.token.values()]
@@ -82,18 +86,15 @@ class StrategyFactory(STRATEGY_REPO):
             print(f'Socket is not Opened yet,re-iterating the function')
 
     def on_tick(self):
-        self.get_signal()
         # updating the overnight position
         if self.Is_Valid_time():
             if not self.overnight_flag:
                 self.Validate_OvernightPosition()
-                # getting expiry
-
                 if not self.scheduler.jobs:
                     self.scheduler.every(5).seconds.do(self.OrderManger.Update_OpenPosition)
             else:
                 if not self.position and self.trade_flag and not self.processed_flag and not self.scheduler.jobs:
-                    self.signal = -1 * self.get_signal()
+                    self.signal = self.get_signal()
                     if self.signal:
                         self.scheduler.every(5).seconds.do(self.Open_position)
                     self.processed_flag = True
@@ -104,13 +105,12 @@ class StrategyFactory(STRATEGY_REPO):
         self.scheduler.run_pending()
         self.Exit_position_on_real_time()
 
-
     def IsExpiry(self):
         expiry = datetime.strptime(self.expiry[0], '%d%b%y')
         return datetime.now(self.time_zone).date() == expiry.date()
 
     def Exit_position_on_real_time(self):
-        # if self.expiry_weekday[self.symbol] == datetime.now(self.time_zone).weekday():
+        # if self.IsExpiry():
         if datetime.now(self.time_zone).time() > datetime.strptime('15:15:00', "%H:%M:%S").time():
             if self.position:
                 self.squaring_of_all_position_AT_ONCE()
@@ -135,7 +135,6 @@ class StrategyFactory(STRATEGY_REPO):
             self.position = self.position if self.OrderManger.net_qty else 0
             if not self.position:
                 self.ACT_CIR = 0
-
     def Validate_OvernightPosition(self):
         if self.position:
             self.squaring_of_all_position_AT_ONCE()
@@ -156,7 +155,7 @@ class StrategyFactory(STRATEGY_REPO):
                     self.ACT_CIR = np.max(strike) - range_ if signal > 0 else np.min(strike) + range_
                 elif self.spr == 'CREDIT':
                     range_ = 100
-                    self.ACT_CIR = np.min(strike) + range_ if signal > 0 else np.max(strike) - range_
+                    self.ACT_CIR = np.min(strike) + range_ if signal > 0 else np.max(strike)-range_
 
             else:
                 spot = self.LIVE_FEED.get_ltp(self.symbol)
@@ -165,13 +164,12 @@ class StrategyFactory(STRATEGY_REPO):
                 if (cond_1 and self.spr == 'DEBIT') | (cond_2 and self.spr == 'CREDIT'):
                     self.squaring_of_all_position_AT_ONCE()
                     self.processed_flag = False
+
     def Get_Strike(self, instrument):
         ex = [e for e in self.expiry if e in instrument][-1]
         stk = instrument.replace(self.index, '').replace(ex, '')
         strike = re.findall('[0-9]+', stk)[0]
         # opt = re.findall('[A-Za-z]+', stk)[0]
         return int(strike)
-
-
 
 

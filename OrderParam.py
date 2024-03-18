@@ -45,7 +45,6 @@ def OrderParam(strategy_name, signal, index, is_expiry=False):
                 p1 = {'opt': 'PE', 'step': 0, 'transtype': 'BUY', 'Qty': QTY, 'expiry': 0, 'spread':'DEBIT'}
                 p2 = {'opt': 'PE', 'step': -4, 'transtype': 'SELL', 'Qty': QTY, 'expiry': 0,'spread':'DEBIT'}
 
-
     elif strategy_name == 'Volatility_BRK':
         if signal == 1:
 

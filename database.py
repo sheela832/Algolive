@@ -3,10 +3,9 @@ import requests
 from requests.exceptions import Timeout
 from datetime import datetime
 import numpy as np
-
 def request_position():
     records = pd.DataFrame()
-    url = 'https://algotrade.pythonanywhere.com/get_position_Intraday'
+    url = 'https://algotrade.pythonanywhere.com/get_position'
     try:
         response = requests.get(url)
         if response.status_code == 200:
@@ -18,7 +17,7 @@ def request_position():
     return records
 
 def UpdatePositionBook(Date, entrytime, exittime ,strategy_name,spread,Transtype, Instrument,Signal, NetQty, NAV, POSITION):
-    url = 'https://algotrade.pythonanywhere.com/append_position_Intraday'
+    url = 'https://algotrade.pythonanywhere.com/append_position'
 
     # creating records
     records = {'Date': Date, 'entrytime': entrytime, 'Strategy': strategy_name,'spread':spread,'Transtype': Transtype,
@@ -32,7 +31,6 @@ def UpdatePositionBook(Date, entrytime, exittime ,strategy_name,spread,Transtype
     except Timeout:
         print('Timeout:Unable to update the PositionBook Server , Server might be busy')
         print(f'PAYLOAD:{payload}')
-
 
 def GetOpenPosition(strategy):
     records = pd.DataFrame()

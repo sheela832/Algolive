@@ -9,7 +9,7 @@ import pytz
 class OrderMng:
     LIVE_FEED = None
 
-    def __init__(self, mode, name, obj):
+    def __init__(self,mode, name,obj):
         self.StrategyFactory_Obj = obj
         self.mode = mode
         self.strategy_name = name
@@ -46,8 +46,7 @@ class OrderMng:
         self.overnight_variables_update_flag = True
 
         if self.nav:
-            instrument_to_subscribe = [instrument for instrument in self.nav if
-                                       instrument not in self.LIVE_FEED.token.values()]
+            instrument_to_subscribe = [instrument for instrument in self.nav if instrument not in self.LIVE_FEED.token.values()]
             if instrument_to_subscribe:
                 self.LIVE_FEED.subscribe_new_symbol(instrument_to_subscribe)
 
@@ -64,9 +63,9 @@ class OrderMng:
 
     def Live_MTM(self):
         mtm = sum([(self.LIVE_FEED.get_ltp(ins) * self.net_qty[ins]) - self.nav[ins] for ins in self.nav])
-        return self.CumMtm + mtm
+        return self.CumMtm+mtm
 
-    def Add_position(self, Instrument, Transtype, Qty, signal, spread):
+    def Add_position(self,Instrument,Transtype, Qty,signal,spread):
         price = 0
         success = False
 
@@ -84,14 +83,14 @@ class OrderMng:
         # if success is True i:e order is successfully placed then only taken into consideration
         if Transtype == 'BUY' and success:
             self.net_qty[Instrument] += Qty
-            self.nav[Instrument] += (price * Qty)
+            self.nav[Instrument] += (price*Qty)
             self.Transtype[Instrument] = Transtype
             self.Signal[Instrument] = signal
             self.spread[Instrument] = spread
 
         elif Transtype == 'SELL' and success:
             self.net_qty[Instrument] -= Qty
-            self.nav[Instrument] -= (price * Qty)
+            self.nav[Instrument] -= (price*Qty)
             self.Transtype[Instrument] = Transtype
             self.Signal[Instrument] = signal
             self.spread[Instrument] = spread
@@ -105,7 +104,7 @@ class OrderMng:
 
         return success
 
-    def close_position(self, Instrument, Qty):
+    def close_position(self, Instrument,Qty):
         price = 0
         success = False
 
@@ -143,8 +142,8 @@ class OrderMng:
         Transtype = self.Transtype[instrument]
         spread = self.spread[instrument]
 
-        UpdatePositionBook(dt, entry_time, exit_time, self.strategy_name, spread,
-                           Transtype, instrument, Signal, NetQty, NAV,
+        UpdatePositionBook(dt, entry_time, exit_time, self.strategy_name,spread,
+                           Transtype, instrument,Signal, NetQty, NAV,
                            POSITION)
 
     def Initialize_Variables(self, instrument):
